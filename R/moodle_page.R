@@ -63,8 +63,8 @@ MoodlePage <- R6::R6Class(
         return(private$course_id)
       }
       else {
-        if (self$is_valid_course_id) {
-          self$go_to(paste0(self$site_url, "course/view.php?id=", course_id))
+        if (self$is_valid_course_id(course_id)) {
+          self$go_to(paste0(self$site_url, "/course/view.php?id=", course_id))
           private$course_id <- course_id
         }
       }
