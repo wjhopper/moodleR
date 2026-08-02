@@ -650,3 +650,42 @@ get_student_secret_ids <- function(tab) {
   )
 
 }
+
+#' @title Retrieve Moodle group names and corresponding IDs
+#' @description
+#' Retrieve name and corresponding internal ID number for each group in a Moodle course.
+#' Note that this function does retrieve the names of members in each group.
+#'
+#' @inheritParams create_new_section
+#'
+#' @importFrom dplyr bind_rows mutate rename
+#'
+#' @return A data.frame object with the following variables:
+#' \describe{
+#'   \item{group_idnumber}{The groups's internal Moodle ID number}
+#'   \item{group_name}{The group's user-facing name in Moodle}
+#' }
+#'
+#' @export
+get_group_ids <- function(tab) {
+
+  cookies <- extract_cookies(tab)
+  UA <- get_user_agent(tab)
+  course_id <- tab$course
+
+  group_main_page <- httr::GET(
+    paste0(tab$site_url, "/group/index.php?id=", course_id),
+    cookies,
+    httr::user_agent(UA)
+  )
+
+  group_ids <- httr::content(group_main_page) |>
+    rvest::html_element("#groups") |>
+    rvest::html_elements("option") |>
+    rvest::html_attrs() |>
+    dplyr::bind_rows() |>
+    dplyr::mutate(title = sub(" \\([0-9]\\)$", "", .data$title)) |>
+    dplyr::rename(group_idnumber = .data[["value"]], group_name = .data[["title"]])
+
+  return(group_ids)
+}
