@@ -434,3 +434,132 @@ graphical_moodle_login <- function(site_url) {
 
   return(login_cookies)
 }
+
+
+#' @title Create a new section on a Moodle page
+#'
+#' @importFrom jsonlite fromJSON
+#' @importFrom httr GET POST content content_type_json
+#' @importFrom rvest html_text2 html_attr html_elements
+#'
+#' @param tab A [MoodlePage()] object obtained via the [open_moodle()] function
+#' @param section_name Scalar character vector giving the name of the new section
+#'
+#' @return An (invisible) [httr::response] object containing the response from Moodle's core_courseformat_update_course endpoint
+#' @export
+create_new_section <- function(tab, section_name) {
+
+  sessionkey <- extract_moodle_session_key(tab)
+  cookies <- extract_cookies(tab)
+  UA <- get_user_agent(tab)
+  course_id <- tab$course
+
+  # Get the HTML for the main Moodle course page
+  URL <- paste0(tab$site_url, "/course/view.php?id=", course_id)
+  main_page <- httr::GET(URL, cookies, httr::user_agent(UA))
+
+  # Scrape the HTML to find the number and ID value for each section on the page
+  # We need to find the number and ID for the *last* section, so we can add one below
+  sections <- httr::content(main_page) |>
+    rvest::html_elements("h3")
+
+  section_names <- sections |>
+    rvest::html_text2()
+
+  section_numbers <- sections |>
+    rvest::html_attr("data-number")
+
+  section_moodle_ids <- sections |>
+    rvest::html_attr("data-id")
+
+  # Adding a new section is a two-step process. First, tell Moodle "Give me a new section"
+  course_info <- httr::POST(
+    paste0(
+      tab$site_url,
+      "/lib/ajax/service.php?sesskey=",
+      sessionkey,
+      "&info=core_courseformat_update_course"
+    ),
+    encode = "raw",
+    content_type_json(),
+    body = paste0(
+      '[{"index":0,"methodname":"core_courseformat_update_course","args":{"action":"section_add","courseid":"',
+      course_id,
+      '","ids":[],"targetsectionid":',
+      section_moodle_ids[length(section_moodle_ids)],
+      "}}]"
+    ),
+    cookies,
+    httr::user_agent(UA)
+  )
+
+  # After we tell Moodle "Give me a new section", it tells us the ID of this new section
+  # and we update all the page information using it
+  course_info_json <- httr::content(course_info)[[1]][["data"]] |>
+    jsonlite::fromJSON(simplifyVector = FALSE)
+
+  new_section_index <- course_info_json[[1]]$fields$numsections+1
+  new_section_id <- course_info_json[[1]]$fields$sectionlist[new_section_index]
+
+  updated_course_info <- httr::POST(
+    paste0(
+      tab$site_url,
+      "/lib/ajax/service.php?sesskey=",
+      sessionkey,
+      "&info=core_course_edit_section"
+    ),
+    encode = "raw",
+    content_type_json(),
+    body = paste0(
+      '[{"index":0,"methodname":"core_course_edit_section","args":{"id":"',
+      new_section_id,
+      '","action":"refresh","sectionreturn":0}}]'
+    ),
+    cookies,
+    httr::user_agent(UA)
+  )
+
+  # Sections are just called "Topic 1", "Topic 2"... by default
+  # So, we need to edit our new section title to have an informative name.
+  # Which is again a two step process
+  updated_course_info <- httr::POST(
+    paste0(
+      tab$site_url,
+      "/lib/ajax/service.php?sesskey=",
+      sessionkey,
+      "&info=core_update_inplace_editable"
+    ),
+    encode = "raw",
+    content_type_json(),
+    body = paste0(
+      '[{"index":0,"methodname":"core_update_inplace_editable","args":{"itemid":"',
+      new_section_id,
+      '","component":"format_topics","itemtype":"sectionnamenl","value":"',
+      section_name,
+      '"}}]'
+    ),
+    cookies,
+    httr::user_agent(UA)
+  )
+
+  project_section_info <- httr::POST(
+    paste0(
+      tab$site_url,
+      "/lib/ajax/service.php?sesskey=",
+      sessionkey,
+      "&info=core_courseformat_update_course"
+    ),
+    encode = "raw",
+    content_type_json(),
+    body = paste0(
+      '[{"index":0,"methodname":"core_courseformat_update_course","args":{"action":"section_state","courseid":"',
+      course_id,
+      '","ids":[',
+      new_section_id,
+      "]}}]"
+    ),
+    cookies,
+    httr::user_agent(UA)
+  )
+  return(invisible(project_section_info))
+}
