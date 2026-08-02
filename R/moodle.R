@@ -759,3 +759,84 @@ populate_groups <- function(tab, groups) {
   return(invisible(resp_list))
 
 }
+
+#' @title Retrieve course roster from Moodle
+#' @description
+#' Retrieve the course roster from Moodle. This roster includes all students, but not all course
+#' participants (i.e., does not include TA's, instructors, administrators, etc.).
+#'
+#' @inheritParams create_new_section
+#'
+#' @importFrom xml2 url_escape
+#' @importFrom httr content
+#'
+#' @return A data frame with 4 columns (`first_name`, `last_name`, `id_number`, and `email_address`).
+#' Note that the ID number corresponds to the "school ID" number, not their internal Moodle "secret"
+#' ID number.
+#' @export
+get_course_roster <- function(tab) {
+
+  sessionkey <- extract_moodle_session_key(tab)
+  cookies <- extract_cookies(tab)
+  UA <- get_user_agent(tab)
+  course_id <- tab$course
+
+  export_page <- httr::GET(
+    url = paste0(tab$site_url, "/grade/export/txt/index.php?id=", course_id),
+    cookies,
+    httr::user_agent(UA)
+  )
+
+  grade_items <- httr::content(export_page) |>
+    html_elements("#id_gradeitemscontainer .form-check-input") |>
+    html_attr("name")
+
+  body <- list(
+    "mform_isexpanded_id_gradeitems" = "1",
+    "checkbox_controller1" = "0",
+    "mform_isexpanded_id_options" = "1",
+    "id" = as.character(course_id),
+    "sesskey" = sessionkey,
+    "_qf__grade_export_form" = "1"
+  )
+
+  body <- c(
+    body,
+    setNames(object = rep(list("0"), length(grade_items)),
+             nm = grade_items
+             ),
+    list(
+      "export_feedback" = "0",
+      "export_onlyactive" = "0",
+      "export_onlyactive" = "1",
+      "display[real]" = "0",
+      "display[real]" = "1",
+      "display[percentage]" = "0",
+      "display[letter]" = "0",
+      "decimals" = "2",
+      "separator" = "comma",
+      "submitbutton" = "Download"
+    )
+  )
+
+  raw_csv <- httr::POST(
+    url = paste0(tab$site_url, "/grade/export/txt/export.php"),
+    httr::add_headers(Accept = "text/csv"),
+    encode = "form",
+    cookies,
+    body = body,
+    httr::user_agent(UA)
+  )
+
+  roster <- httr::content(
+    raw_csv,
+    type = "text/csv",
+    show_col_types = FALSE,
+    encoding = "UTF-8"
+  )
+
+  roster <- roster[c("First name", "Last name", "ID number", "Email address")]
+  names(roster) <- c("first_name", "last_name", "id_number", "email_address")
+
+  return(roster)
+}
