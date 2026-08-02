@@ -563,3 +563,90 @@ create_new_section <- function(tab, section_name) {
   )
   return(invisible(project_section_info))
 }
+
+#' @title Retrieve Moodle student IDs
+#' @description
+#' Retrieve the internal ID number for each student in a Moodle course.
+#'
+#' Note that the Moodle "secret ID" is *not* the same as the student ID number you might see in the gradebook when you download their grades, or on their ID card, etc.
+#'
+#' @inheritParams create_new_section
+#'
+#' @importFrom xml2 as_list
+#' @importFrom rvest read_html
+#'
+#' @return A data.frame object with the following variables:
+#' \describe{
+#'   \item{student_id}{The student's internal Moodle ID number (i.e., their "secret" ID)}
+#'   \item{student_email}{The student's email address}
+#' }
+#' @export
+get_student_secret_ids <- function(tab) {
+
+  sessionkey <- extract_moodle_session_key(tab)
+  cookies <- extract_cookies(tab)
+  UA <- get_user_agent(tab)
+  course_id <- tab$course
+
+  participants_page <- httr::GET(
+    paste0(tab$site_url, "/user/index.php?id=", course_id),
+     cookies,
+    httr::user_agent(UA)
+   )
+
+  post_body <- paste0(
+  '[{"index":0,
+     "methodname":"core_table_get_dynamic_table_content",
+     "args":{"component":"core_user",
+             "handler":"participants",
+             "uniqueid":"user-index-participants-', course_id, '",
+             "sortdata":[{"sortby":"lastname","sortorder":4}],
+             "jointype":2,
+             "filters":{"courseid":{"name":"courseid",
+                                    "jointype":1,
+                                    "values":[', course_id, ']
+                                    }
+                        },
+             "firstinitial":"",
+             "lastinitial":"",
+             "pagenumber":"1",
+             "pagesize":"500",
+             "hiddencolumns":[],
+             "resetpreferences":false
+            }
+   }]'
+  )
+
+  resp <- httr::POST(
+    paste0(tab$site_url, "/lib/ajax/service.php?",
+          "sesskey=", sessionkey,
+          "&info=core_table_get_dynamic_table_content"
+          ),
+    encode = "raw",
+    content_type_json(),
+    body = post_body,
+    cookies,
+    httr::user_agent(UA)
+  )
+
+  student_rows <- httr::content(resp) |>
+    {\(x){x[[1]]$data$html}}(x = _) |>
+    rvest::read_html() |>
+    rvest::html_elements("table#participants tr:not(.emptyrow)")
+
+  student_ids <- student_rows |>
+    rvest::html_elements("input") |>
+    rvest::html_attr("id") |>
+    sub("user", "", x = _)
+
+  student_emails <- student_rows |>
+    xml2::as_list() |>
+    {\(x) {x[-1]}}() |>
+    sapply(\(x) unlist(x[3], recursive = TRUE, use.names = FALSE))
+
+  data.frame(
+    student_id = student_ids[-1],
+    student_email = student_emails
+  )
+
+}
