@@ -840,3 +840,218 @@ get_course_roster <- function(tab) {
 
   return(roster)
 }
+
+#' @title Download quiz responses and attachments
+#' @description Downloads all complete responses to a Moodle quiz, along with any file attachments.
+#'
+#' @inheritParams create_new_section
+#' @param item_id The ID number of the Moodle assignment/quiz. Can be found in the URL shown in the
+#'   address bar when the assignment/quiz is opened in the web browser.
+#' @param questions Vector of question numbers that are expected to have attachments
+#' @param include_attachments Logical scalar indicating whether attachments should be downloaded
+#' @param output_dir Path to the folder where responses/attachments retrieved from Moodle will be
+#'   output. A folder matching the name of the quiz/assignment will be created in this folder, and
+#'   all responses attachments will be placed within. Has no effect when `include_attachments` is
+#'   `FALSE`.
+#' @param overwrite Logical scalar. Controls whether existing files are overwritten when downloading
+#'  attachments
+#'
+#' @details Text responses for each finished attempted are stored in the responses.csv file Within
+#'   `output_dir` a folder is created for each student, where the name of the folder corresponds to
+#'   the student's email address. Each student's file attachments from the Moodle quiz are placed
+#'   in the their respective folder.
+#'
+#' @importFrom tidyselect everything
+#' @importFrom rvest html_text html_element
+#' @importFrom httr write_disk
+#' @importFrom purrr walk2
+#' @importFrom dplyr group_by n
+#'
+#' @return A data frame beginning with the columns `Name`, `Email address`, `Attempt`, `Status`, and
+#' `Grade/100.00`, followed by a column for each quiz question response. The columns are named
+#' `Response 1`, `Response 2`, `Response 3`, etc.
+#'
+#' Note that if a quiz allows a student multiple attempts, then all attempts will be included in
+#' this data frame.
+#'
+#' @export
+download_quiz_responses <- function(
+  tab,
+  item_id,
+  include_attachments = FALSE,
+  output_dir,
+  overwrite = FALSE
+) {
+
+  if (length(include_attachments) != 1L || !is.logical(include_attachments)) {
+    stop("`include_attachments` must be `TRUE` or `FALSE`")
+  }
+
+  if (include_attachments && missing(output_dir)) {
+    stop("If `include_attachments = TRUE, then the `output_dir` arugment must be specified")
+  }
+
+  p <- tab$Page$loadEventFired(wait_ = FALSE)
+  tab$Page$navigate(
+    paste0(tab$site_url, "/mod/quiz/report.php?id=", item_id, "&mode=overview&onlygraded=1"),
+    wait_ = FALSE
+  )
+  tab$wait_for(p)
+
+  sessionkey <- extract_moodle_session_key(tab)
+  cookies <- extract_cookies(tab)
+  UA <- get_user_agent(tab)
+
+  request_body <- list(
+    "id" = item_id,
+    "mode" = "responses",
+    "sesskey" = sessionkey,
+    "_qf__quiz_responses_settings_form" = 1,
+    "mform_isexpanded_id_preferencespage" = 1,
+    "mform_isexpanded_id_preferencespage" = 1,
+    "attempts" = "enrolled_with",
+    "stateinprogress" = 0,
+    "stateoverdue" = 0,
+    "statefinished" = 0,
+    "statefinished" = 1,
+    "stateabandoned" = 0,
+    "pagesize" = 500,
+    "qtext" = 0,
+    "resp" = 0,
+    "resp" = 1,
+    "right" = 0,
+    "submitbutton" = "Show+report"
+  )
+
+  quiz_response_page <- httr::POST(
+    "https://moodle.smith.edu/mod/quiz/report.php",
+    encode = "form",
+    body = request_body,
+    cookies,
+    httr::user_agent(UA)
+  ) |>
+    httr::content()
+
+  quiz_title <- quiz_response_page |>
+    html_element("#page-header h1") |>
+    rvest::html_text()
+
+  responses_table <- quiz_response_page |>
+    rvest::html_element(css = "table#responses")
+
+  responses <- responses_table |>
+    rvest::html_table(na.strings = c("", "-")) |>
+    dplyr::filter(!is.na(.data$`Select all`)) |>
+    dplyr::select(-.data$`Select all`)
+
+  names(responses) <- sub("Sort by.*", "", names(responses))
+
+  incomplete_quiz_index <- responses |>
+    dplyr::transmute(dplyr::across(tidyr::everything(), is.na)) |>
+    rowSums() |>
+    as.logical()
+
+  # incomplete_quizzes <- responses[incomplete_quiz_index, ]
+
+  responses <- responses |>
+    dplyr::rename(Name = .data$`First name  / Last name`) |>
+    dplyr::mutate(
+      Name = sub("Review attempt", "", .data$Name, fixed = TRUE)
+    )
+
+  if (include_attachments) {
+    root <- file.path(output_dir, quiz_title)
+
+    if (!dir.exists(root)) {
+      dir.create(root, recursive = TRUE)
+    }
+
+    questions <- responses |>
+      select(starts_with("Response")) |>
+      purrr::map_lgl(\(x) any(grepl("Attachments: ", x, fixed = TRUE))) |>
+      which()
+
+    rows <- responses_table |>
+      rvest::html_elements("tr:not(.emptyrow)")
+
+    rows <- rows[-1] # drop header row
+    # rows <- rows[!incomplete_quiz_index] # discard incomplete quizzes
+
+    # Map question numbers to column indices in the Moodle table
+    # -1 because Moodle starts the columns number index at 0
+    column_indexes <- paste0(".c", questions - 1 + 5)
+
+    for (c in seq_along(column_indexes)) {
+      links_to_questions <- rows |>
+        html_element(css = column_indexes[c]) |>
+        html_element("a") |>
+        html_attr("href")
+
+      for (i in seq_along(links_to_questions)) {
+        student_dir <- file.path(root, responses$`Email address`[i])
+        if (!dir.exists(student_dir)) {
+          dir.create(student_dir)
+        }
+
+        q <- httr::GET(url = links_to_questions[[i]], cookies) |>
+          httr::content()
+
+        question_state <- q |>
+          rvest::html_elements("div.state") |>
+          rvest::html_text()
+
+        if (question_state == "Not answered") {
+          message("Skipping ", i, " Question ", questions[c] - 1 + 5, " (Question not answered)")
+          next
+        }
+
+        attachment_anchors <- links <- q |>
+          html_elements("div.attachments a")
+
+        attachment_names <- html_text2(attachment_anchors)
+        attachment_links <- html_attr(attachment_anchors, "href")
+
+        if (length(attachment_links) == 0) {
+          message("Skipping ", i, " Question ", questions[c] - 1 + 5, " (No Attachment Found)")
+          next
+        }
+
+        cli::cli_alert_info("Downloading responses for {responses$`Email address`[i]}")
+
+        question_dir <- file.path(student_dir, paste0("Question_", questions[c]))
+        if (!dir.exists(question_dir)) {
+          dir.create(question_dir)
+        }
+
+        purrr::walk2(attachment_links, attachment_names, \(x, y) {
+          filepath <- file.path(question_dir, y)
+          if (!file.exists(filepath) | overwrite) {
+            httr::GET(x, cookies, httr::write_disk(filepath, overwrite = TRUE))
+          }
+        })
+
+        attachment_paths <- paste(paste0("Question_", questions[c]), attachment_names, sep = "/")
+        responses[[paste("Response", questions[c])]][i] <- list(attachment_paths)
+      }
+    }
+  }
+
+  # The Moodle response table only associates the students first quiz attempt with their email
+  # all subsequent attempts in the rows below have blanks for the email that propagate as NA
+  # values in R
+
+  # This overwrites the NA values in rows 2,3,4, etc. with the email address in row 1 for each
+  # student
+  responses <- responses |>
+    dplyr::group_by(.data$`Name`) |>
+    dplyr::mutate(
+      `Email address` = .data$`Email address`[1],
+      `Attempt` = 1:dplyr::n(),
+      ) |>
+    dplyr::select(
+      c("Name", "Email address", "Attempt", "Status", "Grade/100.00"),
+      starts_with("Response")
+      )
+
+  return(responses)
+}
