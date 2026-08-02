@@ -689,3 +689,73 @@ get_group_ids <- function(tab) {
 
   return(group_ids)
 }
+
+#' @title Add members to existing Moodle groups
+#' @description
+#' Populates Moodle groups with members based on correspondence between Moodle group name, and a
+#' "tidy" data frame describing the group each student is in.
+#'
+#' @inheritParams create_new_section
+#' @param groups A data frame containing the group names and emails of students in each group. The name of the column holding the emails must be `email_address`, and the name of the column holding the group names must be `group_name`.
+#'
+#' The `group_name` column must hold entries corresponding to existing Moodle group names. The list of existing groups in a Moodle course can be retrieved using [get_group_ids()]
+#' @importFrom dplyr left_join semi_join
+#'
+#' @return An (invisible) list of [httr::response] objects containing the response from Moodle's group/members.php endpoint for each added group
+#'
+#' @export
+populate_groups <- function(tab, groups) {
+
+  sessionkey <- extract_moodle_session_key(tab)
+  cookies <- extract_cookies(tab)
+  UA <- get_user_agent(tab)
+  course_id <- tab$course
+
+  group_ids <- get_group_ids(course_id, tab)
+  student_ids <- get_student_secret_ids(course_id, tab)
+
+  groups <- dplyr::left_join(
+    groups,
+    student_ids,
+    by = c("email_address" = "student_email")
+  )
+
+  resp_list <- vector(mode = "list", legnth = length(group_ids$group_idnumber))
+  names(resp_list) <- group_ids$group_idnumber
+
+  for (id in group_ids$group_idnumber) {
+
+    x <- dplyr::semi_join(
+      groups,
+      dplyr::filter(group_ids, .data$group_idnumber == id),
+      by = "group_name"
+    )
+
+    student_id_component <- paste("addselect%5B%5D",  x$student_ids,  sep = "=", collapse = "&")
+
+    generic_body <- list(
+      "sesskey" = sessionkey,
+      "removeselect_searchtext" = "",
+      "userselector_preserveselected" = "0",
+      "userselector_autoselectunique" = "0",
+      "userselector_searchanywhere" = "0",
+      "add" = "%E2%97%84%C2%A0Add",
+      "addselect_searchtext" = ""
+    )
+
+    students <- as.list(x$student_id)
+    names(students) <- rep("addselect[]", length(students))
+
+    resp_list[as.character(id)] <- httr::POST(
+      paste0(tab$site_url, "/group/members.php?group=", id),
+      encode = "form",
+      body = c(generic_body, students),
+      cookies,
+      httr::user_agent(UA)
+    )
+
+  }
+
+  return(invisible(resp_list))
+
+}
