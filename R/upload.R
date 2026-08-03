@@ -98,3 +98,70 @@ upload_file <- function(tab, section, title, path, visible = TRUE) {
 
   return(upload_info)
 }
+
+#' @title Create Moodle groups
+#'
+#' @inheritParams create_section
+#' @param groups A character vector holding the names of each group to be created
+create_groups <- function(tab, groups) {
+
+  sessionkey <- extract_moodle_session_key(tab)
+  cookies <- extract_cookies(tab)
+  UA <- get_user_agent(tab)
+  course_id <- tab$course
+
+  import_groups_page <- httr::GET(
+    url = paste0(tab$site_url, "/group/import.php?", course_id),
+    cookies,
+    httr::user_agent(UA)
+  ) |>
+    httr::content()
+
+  files_input_id <- import_groups_page |>
+    rvest::html_element("input#id_files") |>
+    rvest::html_attr("value")
+
+  edit_context <- extract_moodle_context_string(import_groups_page)
+
+  tmp_csv <- tempfile()
+
+  data.frame(groupname = groups) |>
+    write.csv(file = tmp_csv, row.names = FALSE)
+
+  file_info <- httr::POST(
+    url = paste0(tab$site_url, "/repository/repository_ajax.php?action=upload"),
+    body = list(
+      repo_upload_file = httr::upload_file(tmp_csv),
+      sesskey = sessionkey,
+      repo_id = 4,
+      itemid = files_input_id,
+      author = "",
+      savepath = "/",
+      title = "groupnames.csv",
+      ctx_id = edit_context
+    ),
+    encode = "multipart",
+    cookies,
+    httr::user_agent(UA)
+  )
+
+  response <- httr::POST(
+    url = paste0(tab$site_url, "/group/import.php"),
+    body = list(
+      id = course_id,
+      sesskey = sessionkey,
+      `_qf__groups_import_form` = 1,
+      mform_isexpanded_id_general = 1,
+      userfile = files_input_id,
+      delimiter_name = "comma",
+      encoding = "UTF-8",
+      submitbutton = "Import groups"
+    ),
+    encode = "form",
+    cookies,
+    httr::user_agent(UA)
+  )
+
+  return(response)
+
+}
