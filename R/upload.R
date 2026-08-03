@@ -1,6 +1,6 @@
 #' @title Upload file to Moodle
 #'
-#' @inheritParams create_new_section
+#' @inheritParams create_section
 #' @param section Scalar character vector giving the name of the section where the file should be added
 #' @param title Scalar character vector giving the title displayed for the file on the main page
 #' @param path Scalar character vector giving the path to the file to be uploaded

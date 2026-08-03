@@ -462,7 +462,7 @@ graphical_moodle_login <- function(site_url) {
 #'
 #' @return An (invisible) [httr::response] object containing the response from Moodle's core_courseformat_update_course endpoint
 #' @export
-create_new_section <- function(tab, section_name) {
+create_section <- function(tab, section_name) {
 
   sessionkey <- extract_moodle_session_key(tab)
   cookies <- extract_cookies(tab)
@@ -627,7 +627,7 @@ get_section_info <- function(tab, name = "*") {
 #'
 #' Note that the Moodle "secret ID" is *not* the same as the student ID number you might see in the gradebook when you download their grades, or on their ID card, etc.
 #'
-#' @inheritParams create_new_section
+#' @inheritParams create_section
 #'
 #' @importFrom xml2 as_list
 #' @importFrom rvest read_html
@@ -713,7 +713,7 @@ get_student_secret_ids <- function(tab) {
 #' Retrieve name and corresponding internal ID number for each group in a Moodle course.
 #' Note that this function does retrieve the names of members in each group.
 #'
-#' @inheritParams create_new_section
+#' @inheritParams create_section
 #'
 #' @importFrom dplyr bind_rows mutate rename
 #'
@@ -752,7 +752,7 @@ get_group_ids <- function(tab) {
 #' Populates Moodle groups with members based on correspondence between Moodle group name, and a
 #' "tidy" data frame describing the group each student is in.
 #'
-#' @inheritParams create_new_section
+#' @inheritParams create_section
 #' @param groups A data frame containing the group names and emails of students in each group. The name of the column holding the emails must be `email_address`, and the name of the column holding the group names must be `group_name`.
 #'
 #' The `group_name` column must hold entries corresponding to existing Moodle group names. The list of existing groups in a Moodle course can be retrieved using [get_group_ids()]
@@ -822,7 +822,7 @@ populate_groups <- function(tab, groups) {
 #' Retrieve the course roster from Moodle. This roster includes all students, but not all course
 #' participants (i.e., does not include TA's, instructors, administrators, etc.).
 #'
-#' @inheritParams create_new_section
+#' @inheritParams create_section
 #'
 #' @importFrom xml2 url_escape
 #' @importFrom httr content
@@ -933,7 +933,7 @@ get_quiz_responses <- function(item_id) {
 #' @title Download quiz responses and attachments
 #' @description Downloads all complete responses to a Moodle quiz, along with any file attachments.
 #'
-#' @inheritParams create_new_section
+#' @inheritParams create_section
 #' @param item_id The ID number of the Moodle assignment/quiz. Can be found in the URL shown in the
 #'   address bar when the assignment/quiz is opened in the web browser.
 #' @param questions Vector of question numbers that are expected to have attachments
@@ -1149,7 +1149,7 @@ download_quiz_responses <- function(
 #' @description
 #' Retrieve the names and internal ID numbers for all items in the gradebook.
 #'
-#' @inheritParams create_new_section
+#' @inheritParams create_section
 #' @return A named character vector with one element per item in the course gradebook. The elements of the vector correspond to the internal item ID numbers used in the Moodle database. The names of each element correspond to the user-facing names assigned to each item.
 #' @export
 get_gradebook_items <- function(tab) {
@@ -1185,7 +1185,7 @@ get_gradebook_items <- function(tab) {
 #' Retrieve the course roster from Moodle. This roster includes all students, but not all course
 #' participants (i.e., does not include TA's, instructors, administrators, etc.).
 #'
-#' @inheritParams create_new_section
+#' @inheritParams create_section
 #' @param grade_items Character vector holding the precise names of items in the Moodle gradebook; these names can be obtained from [get_gradebook_items()]. When this argument is omitted, no items are retrieved and only the ID variables (name, email, etc.) are retrieved.
 #'
 #' @importFrom xml2 url_escape
