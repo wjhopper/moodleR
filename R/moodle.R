@@ -768,8 +768,8 @@ populate_groups <- function(tab, groups) {
   UA <- get_user_agent(tab)
   course_id <- tab$course
 
-  group_ids <- get_group_ids(course_id, tab)
-  student_ids <- get_student_secret_ids(course_id, tab)
+  group_ids <- get_group_ids(tab)
+  student_ids <- get_student_secret_ids(tab)
 
   groups <- dplyr::left_join(
     groups,
