@@ -1087,3 +1087,133 @@ download_quiz_responses <- function(
 
   return(responses)
 }
+
+#' @title Get gradebook items
+#' @description
+#' Retrieve the names and internal ID numbers for all items in the gradebook.
+#'
+#' @inheritParams create_new_section
+#' @return A named character vector with one element per item in the course gradebook. The elements of the vector correspond to the internal item ID numbers used in the Moodle database. The names of each element correspond to the user-facing names assigned to each item.
+#' @export
+get_gradebook_items <- function(tab) {
+
+  sessionkey <- extract_moodle_session_key(tab)
+  cookies <- extract_cookies(tab)
+  UA <- get_user_agent(tab)
+  course_id <- tab$course
+
+  export_page <- httr::GET(
+    url = paste0(tab$site_url, "/grade/export/txt/index.php?id=", course_id),
+    cookies,
+    httr::user_agent(UA)
+  ) |>
+    httr::content()
+
+  grade_item_names <- export_page |>
+    html_elements("#id_gradeitemscontainer .form-check label") |>
+    html_text2()
+
+  grade_item_ids <- export_page |>
+    html_elements("#id_gradeitemscontainer .form-check-input") |>
+    html_attr("name")
+
+  names(grade_item_ids) <- grade_item_names
+
+  return(grade_item_ids)
+
+}
+
+#' @title Retrieve course roster from Moodle
+#' @description
+#' Retrieve the course roster from Moodle. This roster includes all students, but not all course
+#' participants (i.e., does not include TA's, instructors, administrators, etc.).
+#'
+#' @inheritParams create_new_section
+#' @param grade_items Character vector holding the precise names of items in the Moodle gradebook; these names can be obtained from [get_gradebook_items()]. When this argument is omitted, no items are retrieved and only the ID variables (name, email, etc.) are retrieved.
+#'
+#' @importFrom xml2 url_escape
+#' @importFrom httr content
+#'
+#' @return A data frame beginning with 4 columns (`first_name`, `last_name`, `id_number`, and `email_address`), and additional columns for each requested item.
+#'
+#' @examples
+#' \dontrun{
+#' tab <- open_moodle(
+#'   site_url = "https://moodle.smith.edu",
+#'   graphical = TRUE
+#' )
+#' # Export the full gradebook
+#' grade_items <- get_gradebook_items(tab)
+#' grades <- export_gradebook(tab, names(grade_items))
+#'
+#' # Just the items starting with prefix "Reading Quiz"
+#' is_quiz_item <- startsWith(names(grade_items), "Reading Quiz")
+#' grades <- export_gradebook(tab2, names(grade_items)[is_quiz_item])
+#' }
+#' @export
+export_gradebook <- function(tab, grade_items) {
+
+  sessionkey <- extract_moodle_session_key(tab)
+  cookies <- extract_cookies(tab)
+  UA <- get_user_agent(tab)
+  course_id <- tab$course
+
+  export_page <- httr::GET(
+    url = paste0(tab$site_url, "/grade/export/txt/index.php?id=", course_id),
+    cookies,
+    httr::user_agent(UA)
+  )
+
+  item_ids <- get_gradebook_items(tab)
+  x <- setNames(object = rep(list("0"), length(item_ids)), nm = item_ids)
+
+  if (!missing(grade_items)) {
+    requested_ids <- item_ids[grade_items]
+    x <- c(x, setNames(object = rep(list("1"), length(requested_ids)), nm = requested_ids))
+  }
+
+  body <- c(
+    list(
+      "mform_isexpanded_id_gradeitems" = "1",
+      "checkbox_controller1" = "0",
+      "mform_isexpanded_id_options" = "1",
+      "id" = as.character(course_id),
+      "sesskey" = sessionkey,
+      "_qf__grade_export_form" = "1"
+    ),
+    x,
+    list(
+      "export_feedback" = "0",
+      "export_onlyactive" = "0",
+      "export_onlyactive" = "1",
+      "display[real]" = "0",
+      "display[real]" = "1",
+      "display[percentage]" = "0",
+      "display[letter]" = "0",
+      "decimals" = "2",
+      "separator" = "comma",
+      "submitbutton" = "Download"
+    )
+  )
+
+  raw_csv <- httr::POST(
+    url = paste0(tab$site_url, "/grade/export/txt/export.php"),
+    httr::add_headers(Accept = "text/csv"),
+    encode = "form",
+    cookies,
+    body = body,
+    httr::user_agent(UA)
+  )
+
+  gb <- httr::content(
+    raw_csv,
+    type = "text/csv",
+    show_col_types = FALSE,
+    encoding = "UTF-8",
+    as = "parsed",
+    na = c("", "NA", "-") # passed to readr::read_csv()
+  )
+
+  return(gb)
+}
+
