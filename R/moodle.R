@@ -777,7 +777,7 @@ populate_groups <- function(tab, groups) {
     by = c("email_address" = "student_email")
   )
 
-  resp_list <- vector(mode = "list", legnth = length(group_ids$group_idnumber))
+  resp_list <- vector(mode = "list", length = length(group_ids$group_idnumber))
   names(resp_list) <- group_ids$group_idnumber
 
   for (id in group_ids$group_idnumber) {
@@ -788,7 +788,7 @@ populate_groups <- function(tab, groups) {
       by = "group_name"
     )
 
-    student_id_component <- paste("addselect%5B%5D",  x$student_ids,  sep = "=", collapse = "&")
+    student_id_component <- paste("addselect%5B%5D",  x$student_id,  sep = "=", collapse = "&")
 
     generic_body <- list(
       "sesskey" = sessionkey,
