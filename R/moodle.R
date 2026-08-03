@@ -33,6 +33,21 @@ extract_moodle_session_key <- function(tab) {
   tab$Runtime$evaluate("M.cfg.sesskey")$result$value
 }
 
+#' @title Extract the Moodle 'context' string
+#'
+#' @param html An HTML document object, such as the kind returned by [rvest::read_html()]
+#'
+#' @return A scalar character vector representing the 'context' string
+#' @export
+extract_moodle_context_string <- function(html) {
+
+  description_input_id <- html |>
+    rvest::html_elements("input") |>
+    purrr::keep(\(x) html_attr(x, "type") == "hidden" && html_attr(x, "name") == "context") |>
+    html_attr("value")
+
+}
+
 #' @title Retrieve the browser's user agent string
 #'
 #' @inheritParams extract_moodle_session_key
@@ -562,6 +577,48 @@ create_new_section <- function(tab, section_name) {
     httr::user_agent(UA)
   )
   return(invisible(project_section_info))
+}
+
+parse_sections_from_page <- function(html) {
+
+  html |>
+    rvest::html_elements("div.course-content ul.topics li.course-section") |>
+    purrr::map(\(x) list(
+      id = html_attr(x, "data-id"),
+      number = html_attr(x, "data-number"),
+      name = html_attr(x, "data-sectionname")
+      )
+    )
+}
+
+#' @title Retrieve information from Moodle Page
+#'
+#' @export
+get_section_info <- function(tab, name = "*") {
+
+  sessionkey <- extract_moodle_session_key(tab)
+  cookies <- extract_cookies(tab)
+  UA <- get_user_agent(tab)
+  course_id <- tab$course
+
+  main_page <- httr::GET(
+    url = paste0(tab$site_url, "/course/view.php?id=", course_id),
+    cookies,
+    httr::user_agent(UA)
+  ) |>
+    httr::content()
+
+  sections <- parse_sections_from_page(main_page)
+
+  names(sections) <- purrr::map(sections, "name")
+
+  if (name == "*") {
+    info <- sections
+  } else {
+    info <- purrr::keep(sections, \(x) x$name %in% name)
+  }
+
+  return(info)
 }
 
 #' @title Retrieve Moodle student IDs
