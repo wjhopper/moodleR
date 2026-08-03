@@ -803,7 +803,7 @@ populate_groups <- function(tab, groups) {
     students <- as.list(x$student_id)
     names(students) <- rep("addselect[]", length(students))
 
-    resp_list[as.character(id)] <- httr::POST(
+    resp_list[[as.character(id)]] <- httr::POST(
       paste0(tab$site_url, "/group/members.php?group=", id),
       encode = "form",
       body = c(generic_body, students),
