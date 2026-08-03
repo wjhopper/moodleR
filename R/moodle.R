@@ -841,6 +841,38 @@ get_course_roster <- function(tab) {
   return(roster)
 }
 
+
+get_quiz_responses <- function(item_id) {
+
+  sessionkey <- extract_moodle_session_key(tab)
+  cookies <- extract_cookies(tab)
+  UA <- get_user_agent(tab)
+
+  responses <- httr::POST(
+    url = paste0(tab$site_url, "/mod/quiz/report.php"),
+    body = list(
+      sesskey = sessionkey,
+      download = "csv",
+      id = item_id,
+      mode = "overview",
+      attempts = "enrolled_any",
+      slotmarks = 1
+    ),
+    cookies,
+    httr::user_agent(UA)
+  ) |>
+    httr::content(
+      type = "text/csv",
+      show_col_types = FALSE,
+      encoding = "UTF-8",
+      na = c("", "NA", "-")
+    )
+
+  responses <- responses[-nrow(responses), ]
+  return(responses)
+
+}
+
 #' @title Download quiz responses and attachments
 #' @description Downloads all complete responses to a Moodle quiz, along with any file attachments.
 #'
