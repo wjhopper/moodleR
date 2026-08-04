@@ -165,3 +165,61 @@ create_groups <- function(tab, groups) {
   return(response)
 
 }
+
+#' @title Add text area to Moodle page
+#'
+#' @inheritParams upload_file
+#' @param text A character vector holding text string you want to upload. Can contain raw HTML. If lenth > 1, the elements are concatenated together using a line break.
+#' @export
+add_text <- function(tab, section, title, text) {
+
+  sessionkey <- extract_moodle_session_key(tab)
+  cookies <- extract_cookies(tab)
+  UA <- get_user_agent(tab)
+  course_id <- tab$course
+
+  section_info <- get_section_info(tab, section)
+
+  if (length(section_info) > 1) {
+    warning("Multiple sections named ", section, " found, using the first one")
+    section_info <- section_info[[1]]
+  }
+
+  .x <- httr::POST(
+    url = paste0(tab$site_url, '/course/modedit.php'),
+     body = list(
+      	"showdescription" = "1",
+      	"completionunlocked" = "1",
+      	"course" = course_id,
+      	"coursemodule" = " ",
+      	"section" = section_info[[1]]$number,
+      	"module" = "13",
+      	"modulename" = "label",
+      	"instance" = "",
+      	"add" = "label",
+      	"update" = "0",
+      	"return" = "0",
+      	"sr" = "0",
+      	"sesskey" = sessionkey,
+      	"_qf__mod_label_mod_form" = "1",
+      	"mform_isexpanded_id_generalhdr" = "1",
+      	"mform_isexpanded_id_modstandardelshdr" = "1",
+      	"mform_isexpanded_id_availabilityconditionsheader" = "0",
+      	"mform_isexpanded_id_activitycompletionheader" = "1",
+      	"introeditor[text]" = text,
+      	"name" = title,
+      	"introeditor[format]" = "1",
+      	"introeditor[itemid]" = "997065256",
+      	"visible" = "1",
+      	"cmidnumber" = "",
+      	"lang" = "",
+      	"availabilityconditionsjson" = "{\"op\":\"&\",\"c\":[],\"showc\":[]}",
+      	"completion" = "0",
+      	"submitbutton2" = "Save and return to course"
+    	),
+     cookies,
+     httr::user_agent(UA)
+   )
+
+   return(invisible(.x))
+}
