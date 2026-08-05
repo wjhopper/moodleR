@@ -83,7 +83,7 @@ upload_file <- function(tab, section, title, path, visible = TRUE) {
       files = files_input_id,
       display = 0,
       filterfiles = 0,
-      visible = as.logical(visible),
+      visible = as.numeric(visible),
       availabilityconditionsjson =
         '{"op":"&","c":[],"showc":[]}',
       completion = 0,
