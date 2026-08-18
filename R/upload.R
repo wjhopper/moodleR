@@ -96,7 +96,14 @@ upload_file <- function(tab, section, title, path, visible = TRUE) {
     httr::user_agent(UA)
   )
 
-  return(upload_info)
+  error_contents <- httr::content(upload_info) |>
+    extract_moodle_error()
+
+  if (is_moodle_error(error_contents)) {
+    throw_moodle_error(error_contents)
+  }
+
+  return(invisible(upload_info))
 }
 
 #' @title Create Moodle groups
@@ -162,7 +169,14 @@ create_groups <- function(tab, groups) {
     httr::user_agent(UA)
   )
 
-  return(response)
+  error_contents <- httr::content(response) |>
+    extract_moodle_error()
+
+  if (is_moodle_error(error_contents)) {
+    throw_moodle_error(error_contents)
+  }
+
+  return(invisible(response))
 
 }
 
@@ -185,7 +199,7 @@ add_text <- function(tab, section, title, text) {
     section_info <- section_info[[1]]
   }
 
-  .x <- httr::POST(
+  response <- httr::POST(
     url = paste0(tab$site_url, '/course/modedit.php'),
      body = list(
       	"showdescription" = "1",
@@ -221,5 +235,12 @@ add_text <- function(tab, section, title, text) {
      httr::user_agent(UA)
    )
 
-   return(invisible(.x))
+  error_contents <- httr::content(response) |>
+    extract_moodle_error()
+
+  if (is_moodle_error(error_contents)) {
+    throw_moodle_error(error_contents)
+  }
+
+  return(invisible(response))
 }

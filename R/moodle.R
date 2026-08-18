@@ -106,6 +106,50 @@ is_duo_prompt_url <- function(url) {
   grepl("^https://.*\\.duosecurity\\.com/.*prompt.*$", url)
 }
 
+#' @title Moodle Errors
+#' @description
+#' Detect error message in html body of Moodle response
+
+is_moodle_error <- function(x) {
+
+  return(is.list(x) && length(x) == 2 && !any(is.na(x)))
+
+}
+
+#' @describeIn is_moodle_error Extract the contents of an error message from the html body of Moodle response
+#' @return A list with two elements:
+#' - `message`: A scalar character vector holding the error message
+#' - `info`: A scalar character vector holding the URL for the Moodle help page associated with the error
+
+extract_moodle_error <- function(html) {
+
+  errorbox <- rvest::html_element(html, "div.errorbox")
+
+  if (is.na(errorbox)) {
+    return(NA_character_)
+  }
+
+  message <- errorbox |>
+    html_element("p.errormessage") |>
+    html_text2()
+
+  info <- errorbox |>
+    html_element("p.errorcode a") |>
+    html_attr("href")
+
+  return(list(message = message, info = info))
+}
+
+#' @describeIn is_moodle_error Extract the contents of an error message from the html body of Moodle response
+#' @return A list with two elements:
+#' - `message`: A scalar character vector holding the error message
+#' - `info`: A scalar character vector holding the URL for the Moodle help page associated with the error
+
+throw_moodle_error <- function(x) {
+
+  stop(paste0(x$message, "\n\n", "See ", x$info, " for more information"))
+
+}
 
 #' @title Open Moodle in Chrome/Chromium
 #' @description
@@ -122,10 +166,10 @@ is_duo_prompt_url <- function(url) {
 #'
 #' @details
 #' Currently moodleR only supports Duo as a two-factor authentication provider, and only supports
-#' authentication via OTP codes, hardware security key, or phone call. Thus the `twoFA` argument
+#' authentication via OTP code/push notification, hardware security key, or phone call. Thus the `twoFA` argument
 #' must be one of:
 #'
-#' - `list(duo = "otp")`
+#' - `list(duo = "push")`
 #' - `list(duo = "key")`
 #' - `list(duo = "call")`
 #'
@@ -576,6 +620,14 @@ create_section <- function(tab, section_name) {
     cookies,
     httr::user_agent(UA)
   )
+
+  error_contents <- httr::content(project_section_info) |>
+    extract_moodle_error()
+
+  if (is_moodle_error(error_contents)) {
+    throw_moodle_error(error_contents)
+  }
+
   return(invisible(project_section_info))
 }
 
