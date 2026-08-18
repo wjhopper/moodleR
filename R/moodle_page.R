@@ -26,14 +26,19 @@ MoodlePage <- R6::R6Class(
 
       len <- length(course_id)
 
-      if (len == 1 && is.numeric(course_id) && !is.integer(course_id)) {
-        int_course_id <- as.integer(course_id)
-        is_integer <- !is.na(int_course_id) || int_course_id == course_id
+      if (is.integer(course_id)) {
+        is_integer <- TRUE
+      } else {
+        is_integer <- FALSE
+        int_course_id <- suppressWarnings(as.integer(course_id))
+      }
+
+      if (len == 1 && is.double(course_id)) {
+        is_integer <- isTRUE(course_id == int_course_id)
       }
 
       if (len == 1 && is.character(course_id)) {
-        int_course_id <- suppressWarnings(as.integer(course_id))
-        is_integer <- !is.na(int_course_id) && int_course_id == suppressWarnings(as.numeric(course_id))
+        is_integer <- isTRUE(suppressWarnings(as.numeric(course_id)) == int_course_id)
       }
 
       if (!is_integer || len != 1) {
