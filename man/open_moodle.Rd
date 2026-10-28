@@ -38,10 +38,10 @@ page at the given Moodle instance.
 }
 \details{
 Currently moodleR only supports Duo as a two-factor authentication provider, and only supports
-authentication via OTP codes, hardware security key, or phone call. Thus the \code{twoFA} argument
+authentication via OTP code/push notification, hardware security key, or phone call. Thus the \code{twoFA} argument
 must be one of:
 \itemize{
-\item \code{list(duo = "otp")}
+\item \code{list(duo = "push")}
 \item \code{list(duo = "key")}
 \item \code{list(duo = "call")}
 }

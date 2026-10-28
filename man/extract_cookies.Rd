@@ -10,7 +10,7 @@ extract_cookies(tab)
 \item{tab}{A \code{\link[chromote:ChromoteSession]{chromote::ChromoteSession()}} object}
 }
 \value{
-an \link[httr:httr-package]{httr::httr} requests object with all fields NULL except the options$cookie field
+an \link[httr:httr]{httr::httr} requests object with all fields NULL except the options$cookie field
 }
 \description{
 Extract cookies from a Chrome browser tab

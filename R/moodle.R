@@ -1006,7 +1006,7 @@ get_quiz_responses <- function(item_id) {
 #' @importFrom rvest html_text html_element
 #' @importFrom httr write_disk
 #' @importFrom purrr walk2
-#' @importFrom dplyr group_by n
+#' @importFrom dplyr group_by n select
 #'
 #' @return A data frame beginning with the columns `Name`, `Email address`, `Attempt`, `Status`, and
 #' `Grade/100.00`, followed by a column for each quiz question response. The columns are named
@@ -1108,7 +1108,7 @@ download_quiz_responses <- function(
     }
 
     questions <- responses |>
-      select(starts_with("Response")) |>
+      dplyr::select(starts_with("Response")) |>
       purrr::map_lgl(\(x) any(grepl("Attachments: ", x, fixed = TRUE))) |>
       which()
 

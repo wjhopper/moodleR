@@ -18,35 +18,48 @@ export(open_moodle)
 export(populate_groups)
 export(upload_file)
 importFrom(R6,R6Class)
-importFrom(chromote,ChromeRemote)
-importFrom(chromote,Chromote)
-importFrom(chromote,ChromoteSession)
-importFrom(chromote,find_chrome)
-importFrom(dplyr,bind_rows)
-importFrom(dplyr,group_by)
-importFrom(dplyr,left_join)
-importFrom(dplyr,mutate)
-importFrom(dplyr,n)
-importFrom(dplyr,rename)
-importFrom(dplyr,semi_join)
-importFrom(httr,GET)
-importFrom(httr,POST)
-importFrom(httr,content)
-importFrom(httr,content_type_json)
-importFrom(httr,set_cookies)
-importFrom(httr,write_disk)
+importFrom(chromote,
+  ChromeRemote,
+  Chromote,
+  ChromoteSession,
+  find_chrome
+)
+importFrom(dplyr,
+  bind_rows,
+  group_by,
+  left_join,
+  mutate,
+  n,
+  rename,
+  select,
+  semi_join
+)
+importFrom(httr,
+  GET,
+  POST,
+  content,
+  content_type_json,
+  set_cookies,
+  write_disk
+)
 importFrom(jsonlite,fromJSON)
 importFrom(later,run_now)
 importFrom(processx,process)
-importFrom(purrr,map)
-importFrom(purrr,walk2)
-importFrom(rvest,html_attr)
-importFrom(rvest,html_element)
-importFrom(rvest,html_elements)
-importFrom(rvest,html_text)
-importFrom(rvest,html_text2)
-importFrom(rvest,read_html)
+importFrom(purrr,
+  map,
+  walk2
+)
+importFrom(rvest,
+  html_attr,
+  html_element,
+  html_elements,
+  html_text,
+  html_text2,
+  read_html
+)
 importFrom(stats,setNames)
 importFrom(tidyselect,everything)
-importFrom(xml2,as_list)
-importFrom(xml2,url_escape)
+importFrom(xml2,
+  as_list,
+  url_escape
+)
