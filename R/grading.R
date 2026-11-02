@@ -1,15 +1,22 @@
-receive_assignment <- function(tab, assignment_id) {
+#' @export
+receive_assignment <- function(tab, assignment_id, grade, status = "requiregrading") {
 
   sessionkey <- extract_moodle_session_key(tab)
   cookies <- extract_cookies(tab)
   UA <- get_user_agent(tab)
   course_id <- tab$course
 
+  if (status == "all") {
+    # Moodle uses a blank parameter status to indicate all students
+    status <- character(0)
+  }
+
   quickgrading_URL <- paste0(
       tab$site_url,
       "/mod/assign/view.php?id=",
       assignment_id,
-      "&action=grading&status=requiregrading"
+      "&action=grading&",
+      "status=", status
     )
 
   grading_page <- httr::GET(quickgrading_URL, cookies)
@@ -45,16 +52,24 @@ receive_assignment <- function(tab, assignment_id) {
   grade_input_names <- grade_inputs |>
     html_attr("name")
 
+  grade_names <- grade_inputs[[1]] |>
+    html_elements("option") |>
+    html_text() |>
+    tolower()
+
   grade_input_values <- grade_inputs[[1]] |>
     html_elements("option") |>
     html_attr("value")
 
-  max_value <- grade_input_values |>
-    as.numeric() |>
-    max()
+  selected_value <- grade_input_values[grade_names == tolower(grade)]
 
-  grades <- as.list(rep(max_value, length(grade_input_names))) |>
-    setNames(nm = grade_input_names)
+  if (length(selected_value) != length(grade_input_names)) {
+    grades <- as.list(rep(selected_value, length(grade_input_names)))
+  } else {
+    grades <- as.list(selected_value)
+  }
+
+  grades <- setNames(grades, nm = grade_input_names)
 
   .x <- httr::POST(
     url = paste0(tab$site_url, "/mod/assign/view.php"),
