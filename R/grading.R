@@ -4,7 +4,6 @@ receive_assignment <- function(tab, assignment_id, grade, status = "requiregradi
   sessionkey <- extract_moodle_session_key(tab)
   cookies <- extract_cookies(tab)
   UA <- get_user_agent(tab)
-  course_id <- tab$course
 
   if (status == "all") {
     # Moodle uses a blank parameter status to indicate all students
