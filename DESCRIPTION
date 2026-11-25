@@ -9,9 +9,16 @@ Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 Imports: 
     chromote (>= 0.5.1),
+    dplyr,
     httr,
     jsonlite,
-    R6
+    later,
+    processx,
+    purrr,
+    R6,
+    rvest,
+    tidyselect,
+    xml2
 Suggests: 
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
