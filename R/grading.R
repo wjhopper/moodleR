@@ -102,3 +102,53 @@ receive_assignment <- function(tab, assignment_id, grade, status = "requiregradi
     stop("Error updating grades: ", msg)
   }
 }
+
+#' @importFrom rvest html_table
+#' @importFrom dplyr across starts_with
+#' @export
+get_assignment_submissions <- function(
+
+    tab,
+    assignment_id,
+    status = "requiregrading",
+    include_attachments = FALSE,
+    output_dir,
+    overwrite = FALSE
+) {
+
+  sessionkey <- extract_moodle_session_key(tab)
+  cookies <- extract_cookies(tab)
+  UA <- get_user_agent(tab)
+
+  if (status == "all") {
+    # Moodle uses a blank parameter status to indicate all students
+    status <- character(0)
+  }
+
+  quickgrading_URL <- paste0(
+    tab$site_url,
+    "/mod/assign/view.php?id=",
+    assignment_id,
+    "&action=grading&",
+    "status=", status
+  )
+
+  grading_page <- httr::GET(quickgrading_URL, cookies) |>
+    httr::content()
+
+  submissions_table <- grading_page  |>
+    rvest::html_element("table#submissions")
+
+  submissions <- submissions_table |>
+    rvest::html_table(na.strings = c("", "-")) |>
+    dplyr::select(Name = starts_with("Select"), Email = `Email address`, Status, Grade, starts_with("Last modified")) |>
+    dplyr::mutate(
+      Name = sub("Select ", "", Name, fixed = TRUE),
+      dplyr::across(
+        dplyr::starts_with("Last modified"),
+        \(x) as.POSIXct(x, format = "%A, %B %d, %Y, %H:%M %p")
+      )
+    )
+
+  return(submissions)
+}

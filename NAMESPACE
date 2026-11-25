@@ -8,6 +8,7 @@ export(export_gradebook)
 export(extract_cookies)
 export(extract_moodle_context_string)
 export(extract_moodle_session_key)
+export(get_assignment_submissions)
 export(get_course_roster)
 export(get_gradebook_items)
 export(get_group_ids)
@@ -16,6 +17,7 @@ export(get_student_secret_ids)
 export(get_user_agent)
 export(open_moodle)
 export(populate_groups)
+export(receive_assignment)
 export(upload_file)
 importFrom(R6,R6Class)
 importFrom(chromote,
@@ -25,6 +27,7 @@ importFrom(chromote,
   find_chrome
 )
 importFrom(dplyr,
+  across,
   bind_rows,
   group_by,
   left_join,
@@ -32,7 +35,8 @@ importFrom(dplyr,
   n,
   rename,
   select,
-  semi_join
+  semi_join,
+  starts_with
 )
 importFrom(httr,
   GET,
@@ -53,6 +57,7 @@ importFrom(rvest,
   html_attr,
   html_element,
   html_elements,
+  html_table,
   html_text,
   html_text2,
   read_html
