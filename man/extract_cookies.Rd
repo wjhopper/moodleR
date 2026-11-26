@@ -7,7 +7,7 @@
 extract_cookies(tab)
 }
 \arguments{
-\item{tab}{A \code{\link[chromote:ChromoteSession]{chromote::ChromoteSession()}} object}
+\item{tab}{A \code{\link[chromote:ChromoteSession]{chromote::ChromoteSession()}} object obtained via the \code{\link[=open_moodle]{open_moodle()}} function}
 }
 \value{
 an \link[httr:httr]{httr::httr} requests object with all fields NULL except the options$cookie field

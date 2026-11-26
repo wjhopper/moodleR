@@ -110,6 +110,7 @@ upload_file <- function(tab, section, title, path, visible = TRUE) {
 #'
 #' @inheritParams create_section
 #' @param groups A character vector holding the names of each group to be created
+#' @importFrom utils write.csv
 create_groups <- function(tab, groups) {
 
   sessionkey <- extract_moodle_session_key(tab)
@@ -133,7 +134,7 @@ create_groups <- function(tab, groups) {
   tmp_csv <- tempfile()
 
   data.frame(groupname = groups) |>
-    write.csv(file = tmp_csv, row.names = FALSE)
+    utils::write.csv(file = tmp_csv, row.names = FALSE)
 
   file_info <- httr::POST(
     url = paste0(tab$site_url, "/repository/repository_ajax.php?action=upload"),

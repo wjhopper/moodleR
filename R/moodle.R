@@ -1,6 +1,6 @@
 #' @title Extract cookies from a Chrome browser tab
 #'
-#' @param tab A [chromote::ChromoteSession()] object
+#' @param tab A [chromote::ChromoteSession()] object obtained via the [open_moodle()] function
 #'
 #' @importFrom stats setNames
 #' @importFrom httr set_cookies
@@ -25,7 +25,7 @@ extract_cookies <- function(tab) {
 #' @description
 #' Whenever you log into Moodle, Moodle sets a "session key" that is expected to be included with POST and GET requests to the server. Given a Chromote session object, This function retrieves the current session key from the browser's JavaScript environment.
 #'
-#' @param tab A [chromote::ChromoteSession()] object obtained via the [open_moodle()] function
+#' @inheritParams extract_cookies tab
 #'
 #' @return A scalar character vector representing the Moodle session key
 #' @export
@@ -108,8 +108,9 @@ is_duo_prompt_url <- function(url) {
 
 #' @title Moodle Errors
 #' @description
-#' Detect error message in html body of Moodle response
-
+#' Detect an error message in the body of am HTML response from Moodle
+#'
+#' @param x An object
 is_moodle_error <- function(x) {
 
   return(is.list(x) && length(x) == 2 && !any(is.na(x)))
@@ -117,6 +118,7 @@ is_moodle_error <- function(x) {
 }
 
 #' @describeIn is_moodle_error Extract the contents of an error message from the html body of Moodle response
+#' @param html An `xml_document` object (typically output from [httr::content()])
 #' @return A list with two elements:
 #' - `message`: A scalar character vector holding the error message
 #' - `info`: A scalar character vector holding the URL for the Moodle help page associated with the error
@@ -141,9 +143,7 @@ extract_moodle_error <- function(html) {
 }
 
 #' @describeIn is_moodle_error Extract the contents of an error message from the html body of Moodle response
-#' @return A list with two elements:
-#' - `message`: A scalar character vector holding the error message
-#' - `info`: A scalar character vector holding the URL for the Moodle help page associated with the error
+#' @param x A list object returned from extract_moodle_error
 
 throw_moodle_error <- function(x) {
 
@@ -263,7 +263,7 @@ open_moodle <- function(
     grepl(org, x = _)
 
   if (!any(org_login_link)) {
-    stop("No login link for ", org, found)
+    stop("No login link for ", org, " found")
   }
 
   message(paste0("Logging in at ", login_links[org_login_link]))
@@ -462,7 +462,7 @@ graphical_moodle_login <- function(site_url) {
     }
 
   if (!ready) {
-    stop("Timed out waiting for port ", port)
+    stop("Timed out waiting for 127.0.0.1:9222")
   }
 
   r <- Chromote$new(browser = ChromeRemote$new(host = "127.0.0.1", port = 9222))
@@ -645,6 +645,10 @@ parse_sections_from_page <- function(html) {
 
 #' @title Retrieve information from Moodle Page
 #'
+#' @inheritParams extract_cookies tab
+#' @param name Character vector identifying the sections which should have
+#' information about them retrieved from the Moodle page. Sections should be
+#' identified by their names as they appear on the Moodle page.
 #' @export
 get_section_info <- function(tab, name = "*") {
 
@@ -767,7 +771,7 @@ get_student_secret_ids <- function(tab) {
 #'
 #' @inheritParams create_section
 #'
-#' @importFrom dplyr bind_rows mutate rename
+#' @importFrom dplyr bind_rows mutate rename .data
 #'
 #' @return A data.frame object with the following variables:
 #' \describe{
@@ -793,7 +797,7 @@ get_group_ids <- function(tab) {
     rvest::html_elements("option") |>
     rvest::html_attrs() |>
     dplyr::bind_rows() |>
-    dplyr::mutate(title = sub(" \\([0-9]\\)$", "", .data$title)) |>
+    dplyr::mutate(title = sub(" \\([0-9]\\)$", "", .data[["title"]])) |>
     dplyr::rename(group_idnumber = .data[["value"]], group_name = .data[["title"]])
 
   return(group_ids)
@@ -951,7 +955,7 @@ get_course_roster <- function(tab) {
 }
 
 
-get_quiz_responses <- function(item_id) {
+get_quiz_responses <- function(tab, item_id) {
 
   sessionkey <- extract_moodle_session_key(tab)
   cookies <- extract_cookies(tab)
@@ -988,7 +992,6 @@ get_quiz_responses <- function(item_id) {
 #' @inheritParams create_section
 #' @param item_id The ID number of the Moodle assignment/quiz. Can be found in the URL shown in the
 #'   address bar when the assignment/quiz is opened in the web browser.
-#' @param questions Vector of question numbers that are expected to have attachments
 #' @param include_attachments Logical scalar indicating whether attachments should be downloaded
 #' @param output_dir Path to the folder where responses/attachments retrieved from Moodle will be
 #'   output. A folder matching the name of the quiz/assignment will be created in this folder, and
@@ -1088,7 +1091,7 @@ download_quiz_responses <- function(
   names(responses) <- sub("Sort by.*", "", names(responses))
 
   incomplete_quiz_index <- responses |>
-    dplyr::transmute(dplyr::across(tidyr::everything(), is.na)) |>
+    dplyr::transmute(dplyr::across(tidyselect::everything(), is.na)) |>
     rowSums() |>
     as.logical()
 

@@ -1,9 +1,25 @@
+#' @title Assign grades to assignments that use scale grading
+#'
+#' @inheritParams extract_cookies tab
+#' @inheritParams download_quiz_responses item_id
+#' @param grade Character vector holding grades to assign. Values must
+#' correspond to the name of a grade from the grading scale. If length equals 1,
+#' then the grade is applied to all submissions.
+#' @param status Scalar character vector. Identifies the subset of submissions
+#' for which the grades are to be set. Valid values are `"all"`,
+#' `"requiregrading"`, `"notsubmitted"`, `"submitted"`, and `"graded"`.
+#'
 #' @export
-receive_assignment <- function(tab, assignment_id, grade, status = "requiregrading") {
+receive_assignment <- function(tab, item_id, grade, status = "requiregrading") {
 
   sessionkey <- extract_moodle_session_key(tab)
   cookies <- extract_cookies(tab)
   UA <- get_user_agent(tab)
+
+  valid_statuses <- c("all", "requiregrading", "notsubmitted", "submitted", "graded")
+  if (! status %in% valid_statuses) {
+    stop("`status` must be one of ", cat(paste0('"', valid_statuses, '"'), sep = ", "))
+  }
 
   if (status == "all") {
     # Moodle uses a blank parameter status to indicate all students
@@ -13,7 +29,7 @@ receive_assignment <- function(tab, assignment_id, grade, status = "requiregradi
   quickgrading_URL <- paste0(
       tab$site_url,
       "/mod/assign/view.php?id=",
-      assignment_id,
+      item_id,
       "&action=grading&",
       "status=", status
     )
@@ -74,7 +90,7 @@ receive_assignment <- function(tab, assignment_id, grade, status = "requiregradi
     url = paste0(tab$site_url, "/mod/assign/view.php"),
     body = c(
       list(
-        id = assignment_id,
+        id = item_id,
         action = "quickgrade",
         sesskey = sessionkey,
         `_qf__mod_assign_quick_grading_form` = 1
@@ -103,13 +119,21 @@ receive_assignment <- function(tab, assignment_id, grade, status = "requiregradi
   }
 }
 
+#' @title Retrieve data about submissions to a Moodle assignment
+#' @description
+#' Retrieves the table of information about submissions found on the assignments
+#' "Submissions" tab. Can also optionally download all submissions in a zip file.
+#'
+#' @inheritParams extract_cookies tab
+#' @inheritParams download_quiz_responses item_id include_attachments output_dir overwrite
+#' @inheritParams receive_assignment status
+#'
 #' @importFrom rvest html_table
 #' @importFrom dplyr across starts_with
 #' @export
 get_assignment_submissions <- function(
-
     tab,
-    assignment_id,
+    item_id,
     status = "requiregrading",
     include_attachments = FALSE,
     output_dir,
@@ -128,7 +152,7 @@ get_assignment_submissions <- function(
   quickgrading_URL <- paste0(
     tab$site_url,
     "/mod/assign/view.php?id=",
-    assignment_id,
+    item_id,
     "&action=grading&",
     "status=", status
   )
@@ -141,9 +165,14 @@ get_assignment_submissions <- function(
 
   submissions <- submissions_table |>
     rvest::html_table(na.strings = c("", "-")) |>
-    dplyr::select(Name = starts_with("Select"), Email = `Email address`, Status, Grade, starts_with("Last modified")) |>
+    dplyr::select(
+      Name = tidyselect::starts_with("Select"),
+      "Email address",
+      "Status",
+      "Grade",
+      tidyselect::starts_with("Last modified")) |>
     dplyr::mutate(
-      Name = sub("Select ", "", Name, fixed = TRUE),
+      Name = sub("Select ", "", .data$Name, fixed = TRUE),
       dplyr::across(
         dplyr::starts_with("Last modified"),
         \(x) as.POSIXct(x, format = "%A, %B %d, %Y, %H:%M %p")

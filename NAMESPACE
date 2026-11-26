@@ -27,6 +27,7 @@ importFrom(chromote,
   find_chrome
 )
 importFrom(dplyr,
+  .data,
   across,
   bind_rows,
   group_by,
@@ -64,6 +65,7 @@ importFrom(rvest,
 )
 importFrom(stats,setNames)
 importFrom(tidyselect,everything)
+importFrom(utils,write.csv)
 importFrom(xml2,
   as_list,
   url_escape

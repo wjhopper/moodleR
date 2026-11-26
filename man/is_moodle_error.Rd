@@ -12,13 +12,12 @@ extract_moodle_error(html)
 
 throw_moodle_error(x)
 }
-\value{
-A list with two elements:
-\itemize{
-\item \code{message}: A scalar character vector holding the error message
-\item \code{info}: A scalar character vector holding the URL for the Moodle help page associated with the error
-}
+\arguments{
+\item{x}{A list object returned from extract_moodle_error}
 
+\item{html}{An \code{xml_document} object (typically output from \code{\link[httr:content]{httr::content()}})}
+}
+\value{
 A list with two elements:
 \itemize{
 \item \code{message}: A scalar character vector holding the error message
@@ -26,7 +25,7 @@ A list with two elements:
 }
 }
 \description{
-Detect error message in html body of Moodle response
+Detect an error message in the body of am HTML response from Moodle
 }
 \section{Functions}{
 \itemize{

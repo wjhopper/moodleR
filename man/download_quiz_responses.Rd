@@ -27,8 +27,6 @@ all responses attachments will be placed within. Has no effect when \code{includ
 
 \item{overwrite}{Logical scalar. Controls whether existing files are overwritten when downloading
 attachments}
-
-\item{questions}{Vector of question numbers that are expected to have attachments}
 }
 \value{
 A data frame beginning with the columns \code{Name}, \verb{Email address}, \code{Attempt}, \code{Status}, and

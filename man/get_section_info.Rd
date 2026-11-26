@@ -6,6 +6,13 @@
 \usage{
 get_section_info(tab, name = "*")
 }
+\arguments{
+\item{tab}{A \code{\link[chromote:ChromoteSession]{chromote::ChromoteSession()}} object obtained via the \code{\link[=open_moodle]{open_moodle()}} function}
+
+\item{name}{Character vector identifying the sections which should have
+information about them retrieved from the Moodle page. Sections should be
+identified by their names as they appear on the Moodle page.}
+}
 \description{
 Retrieve information from Moodle Page
 }
